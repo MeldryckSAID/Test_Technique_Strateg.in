@@ -2,16 +2,25 @@ const express = require("express");
 const path = require("path");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 const uri = `mongodb+srv://meldryck:XGDOuT79lEVIZgkE@said.jmiwduc.mongodb.net/st_in`;
+//const collection = require("./script/config").collection("test-user");
 const collection = require("./script/config");
+const { MongoClient } = require("mongodb");
+
+app.set("view engine", "ejs");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use(express.static("public"));
 
+const client = new MongoClient(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 async function connect() {
   try {
     await mongoose.connect(uri, {
@@ -37,9 +46,6 @@ app.get("/", (req, res) => {
 // Inscription
 app.get("/register", (req, res) => {
   res.sendFile(path.join(__dirname, "/view/register.html"));
-});
-app.get("/dashboard", (req, res) => {
-  res.sendFile(path.join(__dirname, "/view/dashboard.html"));
 });
 
 app.post("/register", async (req, res) => {
@@ -89,7 +95,7 @@ app.post("/login", async (req, res) => {
     const isPasswordValid = req.body.password === user.password;
 
     if (isPasswordValid) {
-      res.redirect("/dashboard");
+      res.redirect("/user");
     } else {
       console.log("Mauvais mot de passe pour l'utilisateur :", user.email);
       res.status(401).send("Mauvais mot de passe");
@@ -104,8 +110,19 @@ app.post("/login", async (req, res) => {
 app.get("/user", (req, res) => {
   res.sendFile(path.join(__dirname, "/view/user.html"));
 });
+app.get("/user", async (req, res) => {
+  try {
+    const collection = client.db("st_in").collection("test-user");
+    const allUsers = await collection.find({}, { name: 1, email: 1 }).toArray();
 
-//dashboard connect+ liste
+    res.render("user", { allUsers });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des utilisateurs :", error);
+    res.status(500).send("Erreur lors de la récupération des utilisateurs.");
+  }
+});
+
+//dashboard connect valider
 
 app.get("/dashboard", (req, res) => {
   // Vérifiez la présence du token
@@ -126,4 +143,8 @@ app.get("/dashboard", (req, res) => {
     // Le token est valide, affichez l'email dans la page
     res.sendFile(path.join(__dirname, "/view/dashboard.html"));
   });
+});
+
+app.get("/dashboard", (req, res) => {
+  res.sendFile(path.join(__dirname, "/view/dashboard.html"));
 });
